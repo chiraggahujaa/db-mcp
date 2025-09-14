@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm init:*)",
+      "Bash(bun:*)",
+      "Bash(export PATH=\"$HOME/.bun/bin:$PATH\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
