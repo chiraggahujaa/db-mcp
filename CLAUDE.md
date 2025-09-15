@@ -1,10 +1,37 @@
 ---
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
-globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
+description: Database MCP Server with dynamic configuration and security features
+globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json, .env*"
 alwaysApply: false
 ---
 
-Default to using Bun instead of Node.js.
+## Database Configuration System
+
+This project uses a **generalized numbered environment variable system** for database configuration:
+
+### Environment Variable Pattern
+- Use `DB_HOST_1`, `DB_HOST_2`, `DB_HOST_3`, etc. (not hardcoded names)
+- Database IDs are automatically generated as `db_1`, `db_2`, `db_3`, etc.
+- System automatically discovers databases by scanning for `DB_HOST_*` variables
+
+### Required Variables per Database
+```bash
+DB_HOST_1=hostname
+DB_PORT_1=3306
+DB_USER_1=username
+DB_PASSWORD_1=password
+DB_NAME_1=database_name  # optional
+```
+
+**Note:** Connection pool settings, charset, timezone, and other advanced options are configured via constants in `src/constants.ts` and apply to all databases consistently.
+
+### Usage Examples
+- `switch_environment db_1` (not `switch_environment local`)
+- `test_environment db_2` (not `test_environment staging`)
+- Default database: `DEFAULT_DATABASE=db_1`
+
+## Runtime Environment
+
+Default to using Bun instead of Node.js:
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
 - Use `bun test` instead of `jest` or `vitest`

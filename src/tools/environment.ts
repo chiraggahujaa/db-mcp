@@ -4,7 +4,7 @@ import { databaseManager } from '../database.js';
 
 // Schema for switching environment
 export const switchEnvironmentSchema = z.object({
-  environment: z.string().describe('Environment to switch to (local, hm-staging-write, hm-staging-read, hm-prod-write, hm-prod-read, hm-critical-write)'),
+  environment: z.string().describe('Database ID to switch to (e.g., db_1, db_2, etc.)'),
 });
 
 // Schema for listing environments
@@ -15,7 +15,7 @@ export const getCurrentEnvironmentSchema = z.object({});
 
 // Schema for testing environment connection
 export const testEnvironmentSchema = z.object({
-  environment: z.string().optional().describe('Environment to test (optional, tests current if not specified)'),
+  environment: z.string().optional().describe('Database ID to test (optional, tests current if not specified)'),
 });
 
 export async function switchEnvironment(args: z.infer<typeof switchEnvironmentSchema>) {
@@ -32,20 +32,20 @@ export async function switchEnvironment(args: z.infer<typeof switchEnvironmentSc
         content: [
           {
             type: "text" as const,
-            text: `❌ Failed to connect to environment: ${environment}. Please check configuration.`,
+            text: `❌ Failed to connect to database: ${environment}. Please check configuration.`,
           },
         ],
       };
     }
 
-    // Switch to the environment
+    // Switch to the database
     databaseManager.switchDatabase(environment);
 
     return {
       content: [
         {
           type: "text" as const,
-          text: `✅ Successfully switched to environment: ${environment}`,
+          text: `✅ Successfully switched to database: ${environment}`,
         },
       ],
     };
@@ -54,7 +54,7 @@ export async function switchEnvironment(args: z.infer<typeof switchEnvironmentSc
       content: [
         {
           type: "text" as const,
-          text: `❌ Error switching environment: ${error instanceof Error ? error.message : String(error)}`,
+          text: `❌ Error switching database: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
     };
@@ -88,14 +88,14 @@ export async function listEnvironments(_args: z.infer<typeof listEnvironmentsSch
     });
 
     const output = [
-      '📋 Available Environments:',
+      '📋 Available Databases:',
       '',
       ...environmentInfo.map(env =>
         `${env.status} ${env.name.padEnd(20)} | ${env.host}:${env.port} | User: ${env.user} | DB: ${env.database}`
       ),
       '',
-      `Current Environment: ${currentEnv}`,
-      `Total Environments: ${environments.length}`,
+      `Current Database: ${currentEnv}`,
+      `Total Databases: ${environments.length}`,
       `Connected: ${Object.values(connectionTests).filter(Boolean).length}/${environments.length}`
     ];
 
@@ -112,7 +112,7 @@ export async function listEnvironments(_args: z.infer<typeof listEnvironmentsSch
       content: [
         {
           type: "text" as const,
-          text: `❌ Error listing environments: ${error instanceof Error ? error.message : String(error)}`,
+          text: `❌ Error listing databases: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
     };
@@ -136,7 +136,7 @@ export async function getCurrentEnvironment(_args: z.infer<typeof getCurrentEnvi
     };
 
     const output = [
-      '🔍 Current Environment:',
+      '🔍 Current Database:',
       '',
       `Name: ${info.name}`,
       `Host: ${info.host}:${info.port}`,
@@ -158,7 +158,7 @@ export async function getCurrentEnvironment(_args: z.infer<typeof getCurrentEnvi
       content: [
         {
           type: "text" as const,
-          text: `❌ Error getting current environment: ${error instanceof Error ? error.message : String(error)}`,
+          text: `❌ Error getting current database: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
     };
@@ -176,7 +176,7 @@ export async function testEnvironment(args: z.infer<typeof testEnvironmentSchema
     const isConnected = await databaseManager.testConnection(environment);
 
     const output = [
-      `🔧 Testing Environment: ${environment}`,
+      `🔧 Testing Database: ${environment}`,
       '',
       `Host: ${config.host}:${config.port}`,
       `User: ${config.user}`,
@@ -206,7 +206,7 @@ export async function testEnvironment(args: z.infer<typeof testEnvironmentSchema
       content: [
         {
           type: "text" as const,
-          text: `❌ Error testing environment: ${error instanceof Error ? error.message : String(error)}`,
+          text: `❌ Error testing database: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
     };

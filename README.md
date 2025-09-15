@@ -4,17 +4,25 @@ A comprehensive Model Context Protocol (MCP) server for MySQL database operation
 
 ## Features
 
-### 🔗 Multi-Database Support
-- Connect to multiple MySQL instances simultaneously
-- Support for Local, Staging, Production, and Critical environments
-- Easy database switching and context management
+### 🔗 Dynamic Multi-Database Support
+- Connect to unlimited MySQL instances simultaneously
+- Automatic database discovery from environment variables
+- No code changes required to add new databases
+- Dynamic database switching and context management
 
-### 🛡️ Security & Safety
-- Read-only mode for production safety
-- Query result limits and timeouts
-- Data modification controls
-- Referential integrity validation
-- SQL injection protection
+### 🛡️ Advanced Security & Safety
+- Enterprise-grade security monitoring and audit logging
+- Query pattern analysis for SQL injection detection
+- Rate limiting and suspicious activity monitoring
+- Read-only mode and granular access controls
+- Real-time security reporting and metrics
+
+### 🚀 High-Performance Connection Management
+- Advanced connection pooling with configurable limits
+- Connection timeout and retry logic
+- Keep-alive and idle connection management
+- Queue management for high-concurrency scenarios
+- Connection health monitoring and auto-recovery
 
 ### 🏢 Tenant-Aware Operations
 - Multi-tenant architecture support (separate databases per tenant)
@@ -37,7 +45,7 @@ A comprehensive Model Context Protocol (MCP) server for MySQL database operation
 - Record counting and pagination
 - ID-based record lookup
 - Recent records retrieval
-- Custom query execution (SELECT only)
+- Custom query execution with security validation
 
 #### Data Modification (with safety controls)
 - Single record insertion
@@ -51,6 +59,13 @@ A comprehensive Model Context Protocol (MCP) server for MySQL database operation
 - Referential integrity validation
 - Column statistics and analysis
 - Table relationship mapping
+
+#### Security & Monitoring
+- Comprehensive security reports
+- Database-specific security metrics
+- Real-time security event monitoring
+- Risk level assessment
+- Query audit trails
 
 #### Utility & Maintenance
 - Query execution plan analysis
@@ -89,13 +104,61 @@ A comprehensive Model Context Protocol (MCP) server for MySQL database operation
 
 ## Configuration
 
-### Environment Variables
+### Dynamic Database Configuration
 
-Create a `.env` file based on `.env.example`:
+The system uses a numbered environment variable pattern to automatically discover and configure databases:
 
 ```env
-# Default database connection
-DEFAULT_DATABASE=local
+# Database 1 (Primary/Local)
+DB_HOST_1=localhost
+DB_PORT_1=3306
+DB_USER_1=root
+DB_PASSWORD_1=your_password
+DB_NAME_1=your_database
+
+# Database 2 (Staging)
+DB_HOST_2=staging.example.com
+DB_PORT_2=3306
+DB_USER_2=staging_user
+DB_PASSWORD_2=staging_password
+DB_NAME_2=staging_database
+
+# Database 3 (Production)
+DB_HOST_3=prod.example.com
+DB_PORT_3=3306
+DB_USER_3=prod_user
+DB_PASSWORD_3=prod_password
+DB_NAME_3=prod_database
+
+# Add more databases by incrementing the number
+# DB_HOST_4=..., DB_HOST_5=..., etc.
+```
+
+### Simplified Configuration
+
+Each database only requires basic connection information. Advanced connection pool and database settings are configured via constants in the codebase for consistency across all databases.
+
+**Required per database:**
+```env
+DB_HOST_1=your-database-host
+DB_PORT_1=3306
+DB_USER_1=your-username
+DB_PASSWORD_1=your-password
+DB_NAME_1=your-database-name  # optional
+```
+
+**Connection defaults (applied to all databases):**
+- Connection Limit: 10
+- Timeouts: 60 seconds
+- Idle Timeout: 10 minutes
+- Charset: UTF8_GENERAL_CI
+- Timezone: local
+
+### Global Security Settings
+
+```env
+# Default database to connect to
+DEFAULT_DATABASE=db_1
 
 # Security settings
 MAX_QUERY_RESULTS=1000
@@ -103,50 +166,31 @@ ALLOW_DATA_MODIFICATION=true
 ALLOW_DROP=false
 ALLOW_TRUNCATE=false
 READ_ONLY_MODE=false
-
-# Database connections (example for local)
-LOCAL_DB_HOST=localhost
-LOCAL_DB_PORT=3306
-LOCAL_DB_USER=root
-LOCAL_DB_PASSWORD=your_password
-LOCAL_DB_NAME=your_database
 ```
 
-### Supported Database Connections
+### Database Identifiers
 
-The server supports these predefined connections:
-- `local` - Local development database
-- `hm-staging-write` - Staging write database
-- `hm-staging-read` - Staging read replica
-- `hm-prod-write` - Production write database
-- `hm-critical-write` - Critical system database
+Databases are automatically assigned IDs based on their number:
+- `DB_HOST_1` becomes database ID `db_1`
+- `DB_HOST_2` becomes database ID `db_2`
+- And so on...
 
-### Tenant Architecture
+### Adding New Databases
 
-This MCP server supports a **database-per-tenant** architecture:
+To add a new database, simply add the numbered environment variables:
 
-- **Connection**: A MySQL server connection (e.g., "local")
-- **Tenants**: Separate databases within that connection (e.g., "tenant_a", "tenant_b", "tenant_c")
-- **Tables**: Same table structure across tenants (e.g., each tenant has "users", "orders", "products" tables)
-
-Example structure:
-```
-Connection "local":
-├── Database "tenant_a"
-│   ├── Table "users"
-│   ├── Table "orders"
-│   └── Table "products"
-├── Database "tenant_b"
-│   ├── Table "users"
-│   ├── Table "orders"
-│   └── Table "products"
-└── Database "tenant_c"
-    ├── Table "users"
-    ├── Table "orders"
-    └── Table "products"
+```env
+# Add database 7
+DB_HOST_7=new-database.example.com
+DB_PORT_7=3306
+DB_USER_7=new_user
+DB_PASSWORD_7=new_password
+DB_NAME_7=new_database
 ```
 
-This allows for complete data isolation between tenants while maintaining consistent schema across all tenants.
+All connection pool settings, SSL configuration, charset, timezone, and other advanced options are managed via constants in the code for consistency.
+
+The system will automatically discover and initialize the new database on restart - no code changes required!
 
 ## Usage
 
@@ -174,8 +218,9 @@ Add to your MCP client configuration:
       "command": "bun",
       "args": ["run", "/path/to/db-mcp/index.ts"],
       "env": {
-        "LOCAL_DB_HOST": "localhost",
-        "LOCAL_DB_PASSWORD": "your_password"
+        "DB_HOST_1": "localhost",
+        "DB_USER_1": "root",
+        "DB_PASSWORD_1": "your_password"
       }
     }
   }
@@ -183,6 +228,12 @@ Add to your MCP client configuration:
 ```
 
 ## Tool Reference
+
+### Database Environment Tools
+- `switch_environment` - Switch to a specific database (e.g., `db_1`, `db_2`)
+- `list_environments` - List all configured databases with connection status
+- `get_current_environment` - Get details about the current database
+- `test_environment` - Test connection to a specific database
 
 ### Schema Tools
 - `list_databases` - List all available databases
@@ -198,13 +249,18 @@ Add to your MCP client configuration:
 - `find_by_id` - Find records by primary key
 - `search_records` - Full-text search across columns
 - `get_recent_records` - Get recently modified records
-- `execute_custom_query` - Run custom SELECT queries
+- `execute_custom_query` - Run custom SELECT queries with security validation
 
 ### Modification Tools
 - `insert_record` - Insert single record
 - `update_record` - Update records with WHERE clause
 - `delete_record` - Delete records (requires confirmation)
 - `bulk_insert` - Insert multiple records efficiently
+
+### Security Tools
+- `get_security_report` - Comprehensive security overview with risk assessment
+- `get_security_metrics` - Database-specific or global security metrics
+- `get_security_events` - Recent security events and audit logs
 
 ### Analysis Tools
 - `join_tables` - Execute JOIN operations
@@ -229,6 +285,31 @@ Add to your MCP client configuration:
 - `show_connections` - Display connection status
 - `get_database_size` - Analyze database size
 
+## Security Features
+
+### Real-Time Monitoring
+- Query pattern analysis for SQL injection detection
+- Suspicious activity detection and alerting
+- Rate limiting per database and user
+- Connection attempt monitoring
+
+### Security Reporting
+- Comprehensive security reports with risk levels
+- Database-specific security metrics
+- Audit trail of all database operations
+- Security event history with filtering
+
+### Access Controls
+- Granular permission controls
+- Read-only mode for production safety
+- Query result limits and timeouts
+- SSL/TLS encryption enforcement
+
+### Best Practices
+- Query validation and sanitization
+- Connection pooling security
+- Secure credential management
+
 ## Resources
 
 The server provides these MCP resources:
@@ -248,36 +329,36 @@ The server provides these MCP resources:
 
 ### Connection Security
 - Use dedicated database users with minimal required permissions
-- Enable SSL connections where possible
+- Enable SSL connections where supported
 - Store credentials securely using environment variables
 - Regularly rotate database passwords
+- Monitor security events and metrics
 
 ### Query Safety
 - All queries use parameterized statements
-- SELECT queries are enforced for custom queries
+- Query pattern analysis prevents SQL injection
 - Result limits prevent memory exhaustion
 - Query timeouts prevent long-running operations
+- Comprehensive audit logging
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Connection refused:**
+1. **Database not discovered:**
+   - Ensure you have `DB_HOST_n` where `n` is a number
+   - Check that required variables (`DB_HOST_n`, `DB_USER_n`, `DB_PASSWORD_n`) are set
+   - Restart the application after adding new environment variables
+
+2. **Connection refused:**
    - Check database server is running
    - Verify host, port, and credentials
-   - Test connection with `test_connection` tool
+   - Test connection with `test_environment` tool
 
-2. **Permission denied:**
-   - Ensure database user has required permissions
-   - Check `GRANT` statements for the user
-
-3. **TypeScript errors:**
-   - Run `bun run typecheck` to validate code
-   - Ensure all dependencies are installed
-
-4. **Memory issues:**
-   - Reduce `MAX_QUERY_RESULTS` limit
-   - Use pagination for large datasets
+3. **Security alerts:**
+   - Use `get_security_report` for comprehensive overview
+   - Review blocked queries with `get_security_events`
+   - Check rate limiting settings if requests are blocked
 
 ### Debugging
 
@@ -286,10 +367,10 @@ Enable debug logging:
 DEBUG=1 bun run dev
 ```
 
-Check connection status:
-```bash
-# Use the test_connection tool through your MCP client
-```
+Check system status:
+- Use `list_environments` to see all database connections
+- Use `get_security_report` for security overview
+- Use `test_environment` to diagnose specific database issues
 
 ## Development
 
@@ -298,8 +379,10 @@ Check connection status:
 ```
 db-mcp/
 ├── src/
-│   ├── config.ts          # Configuration management
-│   ├── database.ts        # Database connection handling
+│   ├── config.ts          # Dynamic configuration management
+│   ├── constants.ts       # Connection pool and database constants
+│   ├── database.ts        # Enhanced database connection handling
+│   ├── security.ts        # Security monitoring and audit system
 │   ├── server.ts          # Main MCP server
 │   └── tools/
 │       ├── schema.ts      # Schema analysis tools
@@ -307,6 +390,8 @@ db-mcp/
 │       ├── modify.ts      # Data modification tools
 │       ├── analysis.ts    # Advanced analysis tools
 │       ├── tenant.ts      # Tenant management tools
+│       ├── security.ts    # Security monitoring tools
+│       ├── environment.ts # Database switching tools
 │       └── utility.ts     # Utility and maintenance tools
 ├── index.ts               # Entry point
 ├── package.json
@@ -315,21 +400,12 @@ db-mcp/
 └── README.md
 ```
 
-### Adding New Tools
+### Key Features
 
-1. Create tool function in appropriate file under `src/tools/`
-2. Define Zod schema for input validation
-3. Add tool registration in `src/server.ts`
-4. Update tool handler in the switch statement
-5. Test thoroughly with various inputs
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure TypeScript compilation passes
-5. Submit a pull request
+- **Dynamic Configuration**: Automatically discovers databases from environment variables
+- **Enhanced Security**: Enterprise-grade security monitoring and protection
+- **High Performance**: Advanced connection pooling and optimization
+- **Scalable Architecture**: Support for unlimited databases without code changes
 
 ## License
 
@@ -340,6 +416,7 @@ MIT License - see LICENSE file for details.
 For issues and questions:
 - Check the troubleshooting section above
 - Review the tool reference documentation
+- Use the built-in security and monitoring tools
 - Open an issue on the repository
 
 ---

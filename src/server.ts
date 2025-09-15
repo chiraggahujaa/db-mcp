@@ -66,6 +66,12 @@ import {
   testEnvironment
 } from './tools/environment.js';
 
+// Security tools
+import {
+  getSecurityReportSchema, getSecurityMetricsSchema, getSecurityEventsSchema,
+  getSecurityReport, getSecurityMetrics, getSecurityEvents
+} from './tools/security.js';
+
 class MySQLMCPServer {
   private server: Server;
 
@@ -287,6 +293,23 @@ class MySQLMCPServer {
             description: 'Test connection to a specific environment',
             inputSchema: testEnvironmentSchema,
           },
+
+          // Security Tools
+          {
+            name: 'get_security_report',
+            description: 'Get comprehensive security report with metrics and recent events',
+            inputSchema: getSecurityReportSchema,
+          },
+          {
+            name: 'get_security_metrics',
+            description: 'Get security metrics for a specific database or global metrics',
+            inputSchema: getSecurityMetricsSchema,
+          },
+          {
+            name: 'get_security_events',
+            description: 'Get recent security events with filtering options',
+            inputSchema: getSecurityEventsSchema,
+          },
         ],
       };
     });
@@ -383,6 +406,14 @@ class MySQLMCPServer {
             return await getCurrentEnvironment(args as any);
           case 'test_environment':
             return await testEnvironment(args as any);
+
+          // Security Tools
+          case 'get_security_report':
+            return await getSecurityReport(args as any);
+          case 'get_security_metrics':
+            return await getSecurityMetrics(args as any);
+          case 'get_security_events':
+            return await getSecurityEvents(args as any);
 
           default:
             throw new Error(`Unknown tool: ${name}`);
