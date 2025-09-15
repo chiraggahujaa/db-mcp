@@ -58,6 +58,14 @@ import {
   getDatabaseSize
 } from './tools/utility.js';
 
+// Environment tools
+import {
+  switchEnvironmentSchema, listEnvironmentsSchema, getCurrentEnvironmentSchema,
+  testEnvironmentSchema,
+  switchEnvironment, listEnvironments, getCurrentEnvironment,
+  testEnvironment
+} from './tools/environment.js';
+
 class MySQLMCPServer {
   private server: Server;
 
@@ -259,6 +267,26 @@ class MySQLMCPServer {
             description: 'Get database size and storage information',
             inputSchema: getDatabaseSizeSchema,
           },
+          {
+            name: 'switch_environment',
+            description: 'Switch active database environment (local, staging, prod, etc.)',
+            inputSchema: switchEnvironmentSchema,
+          },
+          {
+            name: 'list_environments',
+            description: 'List all available database environments with connection status',
+            inputSchema: listEnvironmentsSchema,
+          },
+          {
+            name: 'get_current_environment',
+            description: 'Get details about the currently active environment',
+            inputSchema: getCurrentEnvironmentSchema,
+          },
+          {
+            name: 'test_environment',
+            description: 'Test connection to a specific environment',
+            inputSchema: testEnvironmentSchema,
+          },
         ],
       };
     });
@@ -345,6 +373,16 @@ class MySQLMCPServer {
             return await showConnections(args as any);
           case 'get_database_size':
             return await getDatabaseSize(args as any);
+
+          // Environment Management Tools
+          case 'switch_environment':
+            return await switchEnvironment(args as any);
+          case 'list_environments':
+            return await listEnvironments(args as any);
+          case 'get_current_environment':
+            return await getCurrentEnvironment(args as any);
+          case 'test_environment':
+            return await testEnvironment(args as any);
 
           default:
             throw new Error(`Unknown tool: ${name}`);

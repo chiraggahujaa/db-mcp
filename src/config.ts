@@ -71,6 +71,13 @@ export class ConfigManager {
           password: process.env.HM_PROD_WRITE_PASSWORD || '',
           database: process.env.HM_PROD_WRITE_DB,
         },
+        'hm-prod-read': {
+          host: process.env.HM_PROD_READ_HOST || '',
+          port: parseInt(process.env.HM_PROD_READ_PORT || '3306'),
+          user: process.env.HM_PROD_READ_USER || '',
+          password: process.env.HM_PROD_READ_PASSWORD || '',
+          database: process.env.HM_PROD_READ_DB,
+        },
         'hm-critical-write': {
           host: process.env.HM_CRITICAL_WRITE_HOST || '',
           port: parseInt(process.env.HM_CRITICAL_WRITE_PORT || '3306'),
