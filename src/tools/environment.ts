@@ -64,7 +64,7 @@ export async function switchEnvironment(args: z.infer<typeof switchEnvironmentSc
 export async function listEnvironments(_args: z.infer<typeof listEnvironmentsSchema>) {
   try {
     const environments = configManager.getDatabaseList();
-    const currentEnv = databaseManager.getCurrentDatabase();
+    const currentEnv = await databaseManager.getCurrentDatabase();
 
     // Test all connections
     const connectionTests = await databaseManager.testAllConnections();
@@ -121,7 +121,7 @@ export async function listEnvironments(_args: z.infer<typeof listEnvironmentsSch
 
 export async function getCurrentEnvironment(_args: z.infer<typeof getCurrentEnvironmentSchema>) {
   try {
-    const currentEnv = databaseManager.getCurrentDatabase();
+    const currentEnv = await databaseManager.getCurrentDatabase();
     const config = configManager.getDatabaseConfig(currentEnv);
     const isConnected = await databaseManager.testConnection(currentEnv);
 
@@ -167,7 +167,7 @@ export async function getCurrentEnvironment(_args: z.infer<typeof getCurrentEnvi
 
 export async function testEnvironment(args: z.infer<typeof testEnvironmentSchema>) {
   try {
-    const environment = args.environment || databaseManager.getCurrentDatabase();
+    const environment = args.environment || await databaseManager.getCurrentDatabase();
 
     // Validate environment exists
     configManager.validateDatabaseExists(environment);

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun run --watch index.ts",
-    "build": "bun build index.ts --outdir dist --target node",
+    "build": "bun build index.ts --outdir dist --target bun",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -18,6 +18,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.0",
     "mysql2": "^3.14.5",
+    "mongodb": "^6.9.0",
     "zod": "^4.1.8"
   }
 }

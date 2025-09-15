@@ -276,7 +276,7 @@ export async function testConnection(args: z.infer<typeof testConnectionSchema>)
 export async function showConnections(args: z.infer<typeof showConnectionsSchema>) {
   try {
     const availableDatabases = configManager.getDatabaseList();
-    const currentDatabase = databaseManager.getCurrentDatabase();
+    const currentDatabase = await databaseManager.getCurrentDatabase();
 
     let output = `Available Database Connections:\n\n`;
 

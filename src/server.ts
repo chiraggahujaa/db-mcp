@@ -8,7 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { configManager } from './config.js';
-import { databaseManager } from './database.js';
+import { databaseManager, getDatabaseManager } from './database.js';
 
 // Schema tools
 import {
@@ -78,8 +78,8 @@ class MySQLMCPServer {
   constructor() {
     this.server = new Server(
       {
-        name: 'mysql-mcp-server',
-        version: '1.0.0',
+        name: 'multi-database-mcp-server',
+        version: '2.0.0',
       },
       {
         capabilities: {
@@ -435,33 +435,38 @@ class MySQLMCPServer {
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
       try {
         const databases = configManager.getDatabaseList();
+        const manager = await getDatabaseManager();
+        const connectionStatuses = manager.getConnectionStatus();
 
         return {
           resources: [
             {
-              uri: 'mysql://databases',
+              uri: 'database://connections',
               mimeType: 'application/json',
-              name: 'Available Databases',
-              description: 'List of all configured database connections',
+              name: 'Database Connections',
+              description: 'List of all configured database connections with status',
             },
             {
-              uri: 'mysql://configuration',
+              uri: 'database://configuration',
               mimeType: 'application/json',
               name: 'Database Configuration',
               description: 'Current database configuration and security settings',
             },
             {
-              uri: 'mysql://foreign-keys',
+              uri: 'database://foreign-keys',
               mimeType: 'application/json',
               name: 'Foreign Key Map',
-              description: 'Complete foreign key relationship mapping',
+              description: 'Complete foreign key relationship mapping (SQL databases)',
             },
-            ...databases.map(db => ({
-              uri: `mysql://schema/${db}`,
-              mimeType: 'application/json',
-              name: `${db} Schema`,
-              description: `Complete schema information for ${db} database`,
-            })),
+            ...databases.map(db => {
+              const status = connectionStatuses.find(s => s.id === db);
+              return {
+                uri: `database://schema/${db}`,
+                mimeType: 'application/json',
+                name: `${db} Schema (${status?.type || 'unknown'})`,
+                description: `Complete schema information for ${db} database`,
+              };
+            }),
           ],
         };
       } catch (error) {
@@ -475,9 +480,10 @@ class MySQLMCPServer {
       const { uri } = request.params;
 
       try {
-        if (uri === 'mysql://databases') {
-          const databases = configManager.getDatabaseList();
-          const currentDb = databaseManager.getCurrentDatabase();
+        if (uri === 'database://connections') {
+          const manager = await getDatabaseManager();
+          const connectionStatuses = manager.getConnectionStatus();
+          const currentDb = manager.getCurrentDatabase();
 
           return {
             contents: [
@@ -485,16 +491,17 @@ class MySQLMCPServer {
                 uri,
                 mimeType: 'application/json',
                 text: JSON.stringify({
-                  databases,
+                  connections: connectionStatuses,
                   currentDatabase: currentDb,
-                  totalConnections: databases.length,
+                  totalConnections: connectionStatuses.length,
+                  connectedCount: connectionStatuses.filter(c => c.isConnected).length,
                 }, null, 2),
               },
             ],
           };
         }
 
-        if (uri === 'mysql://configuration') {
+        if (uri === 'database://configuration') {
           const config = configManager.getConfig();
           const securityConfig = configManager.getSecurityConfig();
 
@@ -507,54 +514,78 @@ class MySQLMCPServer {
                   defaultDatabase: config.defaultDatabase,
                   security: securityConfig,
                   databaseCount: Object.keys(config.databases).length,
+                  supportedTypes: ['mysql', 'postgresql', 'sqlite', 'supabase', 'planetscale', 'mongodb'],
                 }, null, 2),
               },
             ],
           };
         }
 
-        if (uri === 'mysql://foreign-keys') {
-          const currentDb = databaseManager.getCurrentDatabase();
-          const fkQuery = `
-            SELECT
-              TABLE_NAME,
-              COLUMN_NAME,
-              CONSTRAINT_NAME,
-              REFERENCED_TABLE_NAME,
-              REFERENCED_COLUMN_NAME
-            FROM information_schema.KEY_COLUMN_USAGE
-            WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
-              AND REFERENCED_TABLE_NAME IS NOT NULL
-            ORDER BY TABLE_NAME, COLUMN_NAME
-          `;
+        if (uri === 'database://foreign-keys') {
+          const manager = await getDatabaseManager();
+          const currentDb = manager.getCurrentDatabase();
+          const connection = manager.getConnection(currentDb);
 
-          const result = await databaseManager.query(fkQuery);
+          // Only attempt foreign key query for SQL databases
+          if (['mysql', 'postgresql', 'planetscale'].includes(connection.type)) {
+            const fkQuery = `
+              SELECT
+                TABLE_NAME,
+                COLUMN_NAME,
+                CONSTRAINT_NAME,
+                REFERENCED_TABLE_NAME,
+                REFERENCED_COLUMN_NAME
+              FROM information_schema.KEY_COLUMN_USAGE
+              WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
+                AND REFERENCED_TABLE_NAME IS NOT NULL
+              ORDER BY TABLE_NAME, COLUMN_NAME
+            `;
 
-          return {
-            contents: [
-              {
-                uri,
-                mimeType: 'application/json',
-                text: JSON.stringify({
-                  database: currentDb,
-                  foreignKeys: result.results,
-                  totalRelationships: result.results.length,
-                }, null, 2),
-              },
-            ],
-          };
+            const result = await manager.query(fkQuery);
+
+            return {
+              contents: [
+                {
+                  uri,
+                  mimeType: 'application/json',
+                  text: JSON.stringify({
+                    database: currentDb,
+                    type: connection.type,
+                    foreignKeys: result.results,
+                    totalRelationships: result.results.length,
+                  }, null, 2),
+                },
+              ],
+            };
+          } else {
+            return {
+              contents: [
+                {
+                  uri,
+                  mimeType: 'application/json',
+                  text: JSON.stringify({
+                    database: currentDb,
+                    type: connection.type,
+                    message: 'Foreign key relationships are not supported for this database type',
+                  }, null, 2),
+                },
+              ],
+            };
+          }
         }
 
-        if (uri.startsWith('mysql://schema/')) {
-          const dbName = uri.replace('mysql://schema/', '');
+        if (uri.startsWith('database://schema/')) {
+          const dbName = uri.replace('database://schema/', '');
           configManager.validateDatabaseExists(dbName);
 
-          const tables = await databaseManager.getTables(undefined, dbName);
+          const manager = await getDatabaseManager();
+          const connection = manager.getConnection(dbName);
+          const tables = await manager.listTables(undefined, dbName);
           const schema: Record<string, any> = {};
 
           for (const table of tables) {
             try {
-              const tableSchema = await databaseManager.getTableSchema(table, undefined, dbName);
+              const tableSchema = await manager.getTableSchema(table, undefined, dbName);
               schema[table] = tableSchema;
             } catch (error) {
               console.error(`Error getting schema for ${table}:`, error);
@@ -568,6 +599,8 @@ class MySQLMCPServer {
                 mimeType: 'application/json',
                 text: JSON.stringify({
                   database: dbName,
+                  type: connection.type,
+                  isConnected: connection.isConnected,
                   tables: Object.keys(schema),
                   schema,
                   tableCount: tables.length,
@@ -593,9 +626,18 @@ class MySQLMCPServer {
   }
 
   async run() {
+    // Initialize database manager before starting server
+    try {
+      await getDatabaseManager();
+      console.error('✅ Database manager initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize database manager:', error);
+      throw error;
+    }
+
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('✅ MySQL MCP Server running on stdio');
+    console.error('✅ Multi-Database MCP Server running on stdio');
   }
 }
 

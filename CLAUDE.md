@@ -1,33 +1,74 @@
 ---
-description: Database MCP Server with dynamic configuration and security features
+description: Multi-Database MCP Server with dynamic configuration and security features
 globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json, .env*"
 alwaysApply: false
 ---
 
-## Database Configuration System
+## Multi-Database Configuration System
 
-This project uses a **generalized numbered environment variable system** for database configuration:
+This project uses a **generalized numbered environment variable system** for multi-database configuration supporting MySQL, PostgreSQL, SQLite, Supabase, PlanetScale, and MongoDB:
 
 ### Environment Variable Pattern
-- Use `DB_HOST_1`, `DB_HOST_2`, `DB_HOST_3`, etc. (not hardcoded names)
+- Use `DB_TYPE_1`, `DB_HOST_1`, `DB_PORT_1`, etc. (numbered, not hardcoded names)
 - Database IDs are automatically generated as `db_1`, `db_2`, `db_3`, etc.
-- System automatically discovers databases by scanning for `DB_HOST_*` variables
+- System automatically discovers databases by scanning for `DB_TYPE_*` variables
+- Each database type has specific required variables
 
-### Required Variables per Database
+### Required Variables by Database Type
+
+#### MySQL, PostgreSQL, PlanetScale
 ```bash
+DB_TYPE_1=mysql|postgresql|planetscale
 DB_HOST_1=hostname
-DB_PORT_1=3306
+DB_PORT_1=3306|5432
 DB_USER_1=username
 DB_PASSWORD_1=password
 DB_NAME_1=database_name  # optional
+DB_SSL_1=true|false      # optional
 ```
 
-**Note:** Connection pool settings, charset, timezone, and other advanced options are configured via constants in `src/constants.ts` and apply to all databases consistently.
+#### SQLite
+```bash
+DB_TYPE_2=sqlite
+DB_FILE_2=/path/to/database.db
+# OR
+DB_NAME_2=:memory:  # for in-memory database
+```
+
+#### Supabase
+```bash
+DB_TYPE_3=supabase
+DB_PROJECT_URL_3=https://project.supabase.co
+DB_ANON_KEY_3=anon_key
+DB_SERVICE_KEY_3=service_key  # optional, for admin operations
+```
+
+#### MongoDB
+```bash
+DB_TYPE_4=mongodb
+DB_CONNECTION_STRING_4=mongodb+srv://user:pass@cluster/db
+# OR individual components:
+DB_HOST_4=cluster.mongodb.net
+DB_PORT_4=27017
+DB_USER_4=username
+DB_PASSWORD_4=password
+DB_NAME_4=database_name
+DB_AUTH_SOURCE_4=admin
+DB_SSL_4=true
+```
 
 ### Usage Examples
-- `switch_environment db_1` (not `switch_environment local`)
-- `test_environment db_2` (not `test_environment staging`)
+- `switch_environment db_1` (MySQL database)
+- `switch_environment db_2` (SQLite database)
+- `switch_environment db_3` (Supabase database)
 - Default database: `DEFAULT_DATABASE=db_1`
+
+### Fault Tolerance
+- Each database connection is completely independent
+- Connection failures are isolated and don't affect other databases
+- Automatic retry logic with exponential backoff
+- Health monitoring with auto-recovery
+- Server continues operating even if some databases fail
 
 ## Runtime Environment
 
