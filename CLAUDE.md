@@ -6,7 +6,7 @@ alwaysApply: false
 
 ## Multi-Database Configuration System
 
-This project uses a **generalized numbered environment variable system** for multi-database configuration supporting MySQL, PostgreSQL, SQLite, Supabase, PlanetScale, and MongoDB:
+This project uses a **generalized numbered environment variable system** for multi-database configuration supporting MySQL, PostgreSQL, SQLite, and Supabase:
 
 ### Environment Variable Pattern
 - Use `DB_TYPE_1`, `DB_HOST_1`, `DB_PORT_1`, etc. (numbered, not hardcoded names)
@@ -16,9 +16,9 @@ This project uses a **generalized numbered environment variable system** for mul
 
 ### Required Variables by Database Type
 
-#### MySQL, PostgreSQL, PlanetScale
+#### MySQL, PostgreSQL
 ```bash
-DB_TYPE_1=mysql|postgresql|planetscale
+DB_TYPE_1=mysql|postgresql
 DB_HOST_1=hostname
 DB_PORT_1=3306|5432
 DB_USER_1=username
@@ -43,19 +43,6 @@ DB_ANON_KEY_3=anon_key
 DB_SERVICE_KEY_3=service_key  # optional, for admin operations
 ```
 
-#### MongoDB
-```bash
-DB_TYPE_4=mongodb
-DB_CONNECTION_STRING_4=mongodb+srv://user:pass@cluster/db
-# OR individual components:
-DB_HOST_4=cluster.mongodb.net
-DB_PORT_4=27017
-DB_USER_4=username
-DB_PASSWORD_4=password
-DB_NAME_4=database_name
-DB_AUTH_SOURCE_4=admin
-DB_SSL_4=true
-```
 
 ### Usage Examples
 - `switch_environment db_1` (MySQL database)
@@ -80,100 +67,3 @@ Default to using Bun instead of Node.js:
 - Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
 - Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
 - Bun automatically loads .env, so don't use dotenv.
-
-## APIs
-
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
-
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
-```
-
-## Frontend
-
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-
-// import .css files directly and it works
-import './index.css';
-
-import { createRoot } from "react-dom/client";
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.

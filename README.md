@@ -1,6 +1,6 @@
 # Multi-Database MCP Server
 
-A Model Context Protocol (MCP) server supporting MySQL, PostgreSQL, SQLite, Supabase, PlanetScale, and MongoDB with fault-tolerant architecture and security features.
+A Model Context Protocol (MCP) server supporting MySQL, PostgreSQL, SQLite, and Supabase with fault-tolerant architecture and security features.
 
 ## Features
 
@@ -9,8 +9,6 @@ A Model Context Protocol (MCP) server supporting MySQL, PostgreSQL, SQLite, Supa
 - **PostgreSQL**: Native support using Bun.sql with JSON/JSONB
 - **SQLite**: File-based and in-memory databases
 - **Supabase**: REST API integration with real-time capabilities
-- **PlanetScale**: Serverless MySQL with branch-based development
-- **MongoDB**: Document operations with aggregation pipelines
 
 ### Security & Reliability
 - SQL injection detection and query validation
@@ -94,10 +92,6 @@ DB_FILE_3=/path/to/database.db
 DB_TYPE_4=supabase
 DB_PROJECT_URL_4=https://your-project.supabase.co
 DB_ANON_KEY_4=your_anon_key
-
-# MongoDB
-DB_TYPE_5=mongodb
-DB_CONNECTION_STRING_5=mongodb+srv://user:pass@cluster.net/db
 
 # Global settings
 DEFAULT_DATABASE=db_1
