@@ -46,7 +46,7 @@ export const getRecentRecordsSchema = z.object({
 });
 
 export const executeCustomQuerySchema = z.object({
-  sql: z.string().describe('SQL query to execute (SELECT statements only)'),
+  sql: z.string().describe('SQL query to execute (SELECT, UPDATE, INSERT, DELETE statements)'),
   connection: z.string().optional().describe('Database connection to use (optional)'),
 });
 
@@ -290,27 +290,68 @@ export async function getRecentRecords(args: z.infer<typeof getRecentRecordsSche
 export async function executeCustomQuery(args: z.infer<typeof executeCustomQuerySchema>) {
   try {
     const upperSql = args.sql.trim().toUpperCase();
-    if (!upperSql.startsWith('SELECT')) {
+    const allowedStatements = ['SELECT', 'UPDATE', 'INSERT', 'DELETE'];
+    const isAllowed = allowedStatements.some(stmt => upperSql.startsWith(stmt));
+
+    if (!isAllowed) {
       return {
         content: [
           {
             type: "text" as const,
-            text: `Error: Only SELECT statements are allowed in custom queries. Use specific tools for data modification.`,
+            text: `Error: Only SELECT, UPDATE, INSERT, and DELETE statements are allowed in custom queries.`,
           },
         ],
       };
     }
 
+    // Check for read-only mode for modification statements
+    if (['UPDATE', 'INSERT', 'DELETE'].some(stmt => upperSql.startsWith(stmt))) {
+      if (configManager.isReadOnlyMode()) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: Data modification is not allowed in read-only mode`,
+            },
+          ],
+        };
+      }
+
+      if (!configManager.getSecurityConfig().allowDataModification) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: Data modification is disabled in security configuration`,
+            },
+          ],
+        };
+      }
+    }
+
     const result = await databaseManager.query(args.sql, [], args.connection);
 
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: `Custom Query Results (${result.results.length} rows):\n\nSQL: ${args.sql}\n\n${formatResults(result.results)}`,
-        },
-      ],
-    };
+    // Handle different types of results
+    if (upperSql.startsWith('SELECT')) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Custom Query Results (${result.results.length} rows):\n\nSQL: ${args.sql}\n\n${formatResults(result.results)}`,
+          },
+        ],
+      };
+    } else {
+      // For UPDATE, INSERT, DELETE queries
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Query executed successfully:\n\nSQL: ${args.sql}\n\nAffected rows: ${result.affectedRows || 0}${result.insertId ? `\nInsert ID: ${result.insertId}` : ''}`,
+          },
+        ],
+      };
+    }
   } catch (error) {
     return {
       content: [

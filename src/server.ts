@@ -157,7 +157,7 @@ class MySQLMCPServer {
           },
           {
             name: 'execute_custom_query',
-            description: 'Execute custom SELECT queries safely',
+            description: 'Execute custom SQL queries (SELECT, UPDATE, INSERT, DELETE) safely',
             inputSchema: executeCustomQuerySchema,
           },
 

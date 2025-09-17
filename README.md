@@ -17,6 +17,26 @@ A Model Context Protocol (MCP) server supporting MySQL, PostgreSQL, SQLite, and 
 - Health monitoring with graceful degradation
 - Audit logging and security reporting
 
+## Prerequisites
+
+### Install Bun
+This project requires Bun runtime. Install it using:
+
+**macOS/Linux:**
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
+**Windows:**
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
+
+After installation, restart your terminal and verify with:
+```bash
+bun --version
+```
+
 ## Setup
 
 ### 1. Install Dependencies
@@ -37,13 +57,16 @@ bun run start
 ```
 
 ### 4. Claude Desktop Integration
-Add to your Claude Desktop MCP settings (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop MCP settings:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%AppData%\Claude\claude_desktop_config.json` (or `C:\Users\{username}\AppData\Roaming\Claude\claude_desktop_config.json`)
 
 ```json
 {
   "mcpServers": {
     "db-mcp": {
-      "command": "bun",
+      "command": "/Users/{user}/.bun/bin/bun", // Use full path - run `which bun` to get your specific path
       "args": ["run", "start"],
       "cwd": "/path/to/your/db-mcp",
       "env": {
