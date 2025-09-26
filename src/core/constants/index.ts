@@ -29,10 +29,11 @@ export const DEFAULT_PORTS = {
   supabase: 443, // HTTPS port
   planetscale: 3306,
   mongodb: 27017,
+  firestore:8181
 } as const;
 
 // Database types
-export const DATABASE_TYPES = ['mysql', 'postgresql', 'sqlite', 'supabase', 'planetscale', 'mongodb'] as const;
+export const DATABASE_TYPES = ['mysql', 'postgresql', 'sqlite', 'supabase', 'planetscale', 'mongodb','firestore'] as const;
 
 // MongoDB specific defaults
 export const MONGODB_DEFAULTS = {

@@ -1,6 +1,7 @@
 // Database types
-export const DATABASE_TYPES = ['mysql', 'postgresql', 'sqlite', 'supabase', 'planetscale', 'mongodb'] as const;
+export const DATABASE_TYPES = ['mysql', 'postgresql', 'sqlite', 'supabase', 'planetscale', 'mongodb','firestore'] as const;
 export type DatabaseType = typeof DATABASE_TYPES[number];
+
 
 // Security types
 export interface SecurityConfig {

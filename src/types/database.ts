@@ -14,6 +14,7 @@ export interface DatabaseConfig {
   authSource?: string; // For MongoDB
   ssl?: boolean;
   connectionString?: string; // For full connection strings
+  serviceAccountKey?: string; // For Firestore
   [key: string]: any; // Allow additional database-specific options
 }
 

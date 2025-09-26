@@ -85,6 +85,12 @@ export class DatabaseFactory {
           config.port = DEFAULT_PORTS[type];
         }
         break;
+        case 'firestore':
+        if (!config.serviceAccountKey) {
+        throw new Error('Service account key is required for Firestore database');
+       }
+    break;
+
 
       default:
         throw new Error(`Unknown database type: ${type}`);
@@ -96,7 +102,11 @@ export class DatabaseFactory {
   }
 
   static getDefaultPort(type: DatabaseType): number {
-    return DEFAULT_PORTS[type];
+    if (type in DEFAULT_PORTS) {
+      return DEFAULT_PORTS[type as keyof typeof DEFAULT_PORTS];
+    }
+    // For types without a standard port (like firestore), return 0 or a sensible default.
+    return 0;
   }
 
   static isTypeSupported(type: string): type is DatabaseType {
