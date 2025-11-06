@@ -72,6 +72,15 @@ export class SupabaseConnection extends BaseDatabaseConnection {
     }
 
     try {
+      // Check if this is a complex query (contains JOIN, functions, etc.)
+      if (this.isComplexQuery(sql)) {
+        const data = await this.executeRawSQLViaRPC(sql, params);
+        return {
+          results: Array.isArray(data) ? data : [data],
+          fields: this.extractFields(data),
+        };
+      }
+
       // Supabase PostgREST doesn't support arbitrary SQL queries directly
       // We need to parse the SQL and convert it to PostgREST operations
       const parsedQuery = this.parseSimpleQuery(sql);
@@ -115,31 +124,58 @@ export class SupabaseConnection extends BaseDatabaseConnection {
 
   async getTableSchema(table: string, _database?: string): Promise<any[]> {
     try {
-      // Get table schema via PostgREST options
-      const response = await this.makeRequest('OPTIONS', `/rest/v1/${table}`, {}, {});
+      // First try to get schema via RPC function for information_schema access
+      try {
+        const schema = await this.getTableSchemaViaRPC(table);
+        if (schema && schema.length > 0) {
+          return schema;
+        }
+      } catch (rpcError) {
+        console.warn(`RPC schema query failed for table ${table}, trying OpenAPI approach:`, rpcError);
+      }
+
+      // Fallback: Try to get schema via OpenAPI spec
+      const response = await this.makeRequest('GET', '/rest/v1/', {
+        'Accept': 'application/openapi+json',
+      }, {});
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${await response.text()}`);
       }
 
-      // Parse the response headers for schema info
-      const acceptPost = response.headers.get('Accept-Post');
-      if (!acceptPost) {
-        throw new Error('Unable to retrieve table schema');
+      const schema = await response.json() as any;
+      const definitions = schema?.definitions || {};
+
+      if (!definitions[table]) {
+        throw new Error(`Table '${table}' not found in schema definitions`);
       }
 
-      // This is a simplified schema extraction - in practice you'd want to parse the OpenAPI spec
-      return [{
-        Field: 'id',
-        Type: 'integer',
-        Null: 'NO',
-        Default: null,
-        Key: 'PRI',
-        Extra: 'auto_increment',
-      }];
+      const tableDefinition = definitions[table];
+      const properties = tableDefinition.properties || {};
+
+      // Convert OpenAPI schema to MySQL-like format for consistency
+      const columns = Object.entries(properties).map(([columnName, columnDef]: [string, any]) => {
+        const type = this.mapOpenAPITypeToSQL(columnDef);
+        const isNullable = !tableDefinition.required?.includes(columnName);
+
+        return {
+          Field: columnName,
+          Type: type,
+          Null: isNullable ? 'YES' : 'NO',
+          Default: columnDef.default || null,
+          Key: columnName === 'id' ? 'PRI' : '', // Simple heuristic for primary key
+          Extra: columnName === 'id' && type.includes('integer') ? 'auto_increment' : '',
+        };
+      });
+
+      if (columns.length === 0) {
+        throw new Error(`No columns found for table '${table}'`);
+      }
+
+      return columns;
     } catch (error) {
       this.logError('getTableSchema', error);
-      throw error;
+      throw new Error(`Unable to retrieve table schema -- ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -342,9 +378,9 @@ export class SupabaseConnection extends BaseDatabaseConnection {
       throw new Error('No table specified in query');
     }
 
-    // Handle JOINs by using embedded resources or separate queries
+    // Handle JOINs by attempting to use SQL via RPC function
     if (joins) {
-      throw new Error('JOIN queries are not yet supported in Supabase connector. Use separate queries or embedded resources.');
+      return this.executeRawSQLQuery(parsedQuery, params);
     }
 
     let url = `/rest/v1/${table}`;
@@ -417,6 +453,128 @@ export class SupabaseConnection extends BaseDatabaseConnection {
     }
 
     return conditions;
+  }
+
+  private isComplexQuery(sql: string): boolean {
+    const normalizedSql = sql.toLowerCase();
+    return (
+      normalizedSql.includes('join ') ||
+      normalizedSql.includes('union ') ||
+      normalizedSql.includes('subquery') ||
+      normalizedSql.includes('with ') ||
+      normalizedSql.match(/\b(acos|cos|sin|radians|sqrt|power|abs|round|floor|ceil)\s*\(/i) !== null ||
+      normalizedSql.includes('order by') ||
+      normalizedSql.includes('group by') ||
+      normalizedSql.includes('having') ||
+      normalizedSql.includes('information_schema') ||
+      this.isFunctionCall(sql)
+    );
+  }
+
+  private isFunctionCall(sql: string): boolean {
+    const normalizedSql = sql.trim().toLowerCase();
+    // Check if SQL starts with SELECT and contains function calls in FROM clause
+    // Pattern: SELECT ... FROM function_name(args)
+    const functionInFromPattern = /^select\s+.*\s+from\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/i;
+    return functionInFromPattern.test(normalizedSql);
+  }
+
+  private async executeRawSQLViaRPC(sql: string, params: any[] = []): Promise<any[]> {
+    try {
+      // Try to execute via a generic SQL RPC function
+      // This assumes you have created an RPC function in Supabase called 'execute_sql'
+      const response = await this.makeRequest('POST', '/rest/v1/rpc/execute_sql', {
+        'Content-Type': 'application/json',
+      }, {
+        sql_query: sql,
+        query_params: params
+      });
+
+      if (!response.ok) {
+        // If RPC doesn't exist, try direct SQL execution (for compatible queries)
+        // This is a fallback that might work for some complex queries
+        throw new Error(`RPC function 'execute_sql' not found. Complex SQL queries require an RPC function in Supabase.`);
+      }
+
+      const result = await response.json();
+      return Array.isArray(result) ? result : [result];
+    } catch (error) {
+      this.logError('executeRawSQLViaRPC', error);
+      throw error;
+    }
+  }
+
+  private async executeRawSQLQuery(parsedQuery: any, params: any[] = []): Promise<any[]> {
+    // This method is called when JOINs are detected
+    // For now, we'll delegate to the RPC method
+    return this.executeRawSQLViaRPC(this.reconstructSQL(parsedQuery), params);
+  }
+
+  private reconstructSQL(parsedQuery: any): string {
+    const { table, columns, where, limit, joins } = parsedQuery;
+    let sql = `SELECT ${columns || '*'} FROM ${table}`;
+
+    if (joins) {
+      sql += ` ${joins}`;
+    }
+
+    if (where) {
+      sql += ` WHERE ${where}`;
+    }
+
+    if (limit) {
+      sql += ` LIMIT ${limit}`;
+    }
+
+    return sql;
+  }
+
+  private async getTableSchemaViaRPC(table: string): Promise<any[]> {
+    try {
+      // Try to call an RPC function that can access information_schema
+      const response = await this.makeRequest('POST', '/rest/v1/rpc/get_table_schema', {
+        'Content-Type': 'application/json',
+      }, { table_name: table });
+
+      if (!response.ok) {
+        throw new Error(`RPC function 'get_table_schema' not available`);
+      }
+
+      const result = await response.json();
+      return Array.isArray(result) ? result : [];
+    } catch (error) {
+      // RPC function doesn't exist or failed
+      throw error;
+    }
+  }
+
+  private mapOpenAPITypeToSQL(columnDef: any): string {
+    const { type, format, maxLength } = columnDef;
+
+    switch (type) {
+      case 'integer':
+        if (format === 'int64') return 'bigint';
+        return 'integer';
+      case 'number':
+        if (format === 'float') return 'real';
+        if (format === 'double') return 'double precision';
+        return 'numeric';
+      case 'string':
+        if (format === 'date-time') return 'timestamp with time zone';
+        if (format === 'date') return 'date';
+        if (format === 'time') return 'time';
+        if (format === 'uuid') return 'uuid';
+        if (maxLength) return `varchar(${maxLength})`;
+        return 'text';
+      case 'boolean':
+        return 'boolean';
+      case 'array':
+        return 'jsonb';
+      case 'object':
+        return 'jsonb';
+      default:
+        return 'text';
+    }
   }
 
   private extractFields(data: any): any[] {

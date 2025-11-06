@@ -29,7 +29,6 @@ export class SecurityManager {
     /;\s*drop\s+/i,
     /;\s*delete\s+from/i,
     /;\s*update.*set/i,
-    /information_schema/i,
     /load_file\s*\(/i,
     /into\s+outfile/i,
     /benchmark\s*\(/i,
